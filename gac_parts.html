@@ -51,45 +51,6 @@
             gap: 12px;
         }
 
-        .file-upload-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .upload-btn {
-            background-color: var(--primary-color);
-            color: white;
-            padding: 10px 18px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .upload-btn:hover {
-            background-color: var(--primary-hover);
-        }
-
-        button.upload-btn {
-            border: none;
-            font-family: inherit;
-        }
-
-        input[type="file"] {
-            display: none;
-        }
-
-        .file-name {
-            font-size: 0.9rem;
-            color: #555;
-        }
-
         .global-search {
             width: 100%;
             padding: 12px 16px;
@@ -117,6 +78,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             overflow-x: auto;
             max-height: 70vh;
+            -webkit-overflow-scrolling: touch;
         }
 
         table {
@@ -183,6 +145,48 @@
             padding: 20px;
             color: #666;
         }
+
+        /* התאמה רספונסיבית לסמארטפונים */
+        @media (max-width: 768px) {
+            body {
+                padding: 8px;
+            }
+
+            h1 {
+                font-size: 1.4rem;
+                margin-bottom: 12px;
+            }
+
+            .controls-box {
+                padding: 10px;
+                top: 5px;
+                gap: 8px;
+            }
+
+            .global-search {
+                padding: 10px 12px;
+                font-size: 14px;
+            }
+
+            .stats {
+                font-size: 0.8rem;
+                text-align: center;
+            }
+
+            .table-wrapper {
+                max-height: 65vh;
+            }
+
+            th, td {
+                padding: 8px 8px;
+                font-size: 13px;
+            }
+
+            .col-filter {
+                padding: 4px 6px;
+                font-size: 11px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -191,28 +195,15 @@
     <h1>חיפוש חלפים - GAC / AION</h1>
 
     <div class="controls-box">
-        <div class="file-upload-wrapper">
-            <label for="csvFileInput" class="upload-btn">
-                📁 העלה קובץ CSV מותאם
-            </label>
-            <input type="file" id="csvFileInput" accept=".csv" onchange="handleFileUpload(event)">
-
-            <button type="button" class="upload-btn" onclick="loadDefaultCSV()">
-                🌐 טען CSV ברירת מחדל
-            </button>
-
-            <span class="file-name" id="fileNameDisplay">טוען CSV ברירת מחדל...</span>
-        </div>
-
         <input type="text" class="global-search" id="searchInput" onkeyup="filterParts()" placeholder="חיפוש כללי בכל העמודות (מק&quot;ט, תיאור, דגם...)...">
-        <div class="stats" id="searchStats">ממתין להעלאת קובץ CSV...</div>
+        <div class="stats" id="searchStats">טוען נתונים...</div>
     </div>
 
     <div class="table-wrapper">
         <table id="partsTable">
             <thead id="tableHeader"></thead>
             <tbody id="tableBody">
-                <tr><td class="status-msg">אין נתונים להצגה. יש להעלות קובץ CSV.</td></tr>
+                <tr><td class="status-msg">טוען נתונים מהשרת...</td></tr>
             </tbody>
         </table>
     </div>
@@ -222,36 +213,16 @@
     let rawData = [];
     let headers = [];
 
+    // כתובת CSV ברירת המחדל
+    const DEFAULT_CSV_URL = 'https://gacparts.knizo.com/parts2.csv';
+
     // ניקוי מוחלט של תווי רווח נסתרים ותווי כיווניות Unicode מהמק"טים
     function sanitizeValue(val) {
         if (val === null || val === undefined) return '';
         return String(val)
-            .replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '') // הסרת תווי שפה/כיווניות נסתרים
-            .replace(/\s+/g, '') // הסרת כל הרווחים במחרוזת
+            .replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '')
+            .replace(/\s+/g, '')
             .trim();
-    }
-
-    // טעינת קובץ CSV שהועלה
-    function handleFileUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const csvText = e.target.result;
-            
-            // שמירת הנתונים בזיכרון המקומי בדפדפן (LocalStorage)
-            try {
-                localStorage.setItem('savedPartsCSV', csvText);
-                localStorage.setItem('savedCSVName', file.name);
-            } catch(err) {
-                console.warn('לא ניתן היה לשמור בזיכרון המקומי (קובץ גדול מדי)');
-            }
-
-            document.getElementById('fileNameDisplay').innerText = `קובץ פעיל: ${file.name}`;
-            parseCSVContent(csvText);
-        };
-        reader.readAsText(file);
     }
 
     // פענוח ה-CSV
@@ -269,78 +240,22 @@
         });
     }
 
-    // כתובת CSV ברירת המחדל
-    const DEFAULT_CSV_URL = 'https://gacparts.knizo.com/parts2.csv';
-
-    // טעינת קובץ CSV שהועלה
-    function handleFileUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const csvText = e.target.result;
-
-            // שמירת הקובץ המותאם אישית בזיכרון המקומי
-            try {
-                localStorage.setItem('savedPartsCSV', csvText);
-                localStorage.setItem('savedCSVName', file.name);
-                localStorage.setItem('hasCustomCSV', 'true');
-            } catch(err) {
-                console.warn('לא ניתן היה לשמור בזיכרון המקומי (קובץ גדול מדי)');
-            }
-
-            document.getElementById('fileNameDisplay').innerText =
-                `קובץ מותאם אישית פעיל: ${file.name}`;
-
-            parseCSVContent(csvText);
-        };
-
-        reader.readAsText(file);
-    }
-
-    // טעינת CSV ברירת המחדל מהשרת
+    // טעינת CSV מהשרת
     function loadDefaultCSV() {
-        document.getElementById('fileNameDisplay').innerText =
-            'טוען CSV ברירת מחדל מהשרת...';
-        document.getElementById('searchStats').innerText =
-            'טוען נתונים...';
+        document.getElementById('searchStats').innerText = 'טוען נתונים...';
 
         Papa.parse(DEFAULT_CSV_URL, {
             download: true,
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                document.getElementById('fileNameDisplay').innerText =
-                    'קובץ ברירת מחדל פעיל: parts2.csv';
                 processParsedData(results);
             },
             error: function(error) {
-                document.getElementById('fileNameDisplay').innerText =
-                    'שגיאה בטעינת CSV ברירת המחדל';
-                document.getElementById('searchStats').innerText =
-                    'לא ניתן לטעון את הקובץ מהשרת. בדוק CORS או זמינות של הכתובת.';
-                console.error('Default CSV load error:', error);
+                document.getElementById('searchStats').innerText = 'לא ניתן לטעון את הקובץ מהשרת.';
+                console.error('CSV load error:', error);
             }
         });
-    }
-
-    // טעינה אוטומטית:
-    // אם המשתמש כבר העלה CSV מותאם אישית - משתמשים בו.
-    // אחרת - טוענים את CSV ברירת המחדל מהכתובת החיצונית.
-    function autoLoad() {
-        const savedCSV = localStorage.getItem('savedPartsCSV');
-        const savedName = localStorage.getItem('savedCSVName');
-        const hasCustomCSV = localStorage.getItem('hasCustomCSV') === 'true';
-
-        if (hasCustomCSV && savedCSV) {
-            document.getElementById('fileNameDisplay').innerText =
-                `נטען קובץ מותאם אישית: ${savedName || 'קובץ שמור'}`;
-            parseCSVContent(savedCSV);
-            return;
-        }
-
-        loadDefaultCSV();
     }
 
     function processParsedData(results) {
@@ -402,7 +317,6 @@
                 let td = document.createElement('td');
                 let rawVal = row[header] !== undefined ? row[header] : '';
 
-                // אם מדובר בעמודה הראשונה (עמודת מק"ט), מנקים אותה לחלוטין ומחילים עיצוב קשיח
                 if (index === 0) {
                     td.classList.add('sku-cell');
                     td.textContent = sanitizeValue(rawVal);
@@ -455,7 +369,7 @@
         renderTable(filtered);
     }
 
-    document.addEventListener('DOMContentLoaded', autoLoad);
+    document.addEventListener('DOMContentLoaded', loadDefaultCSV);
 </script>
 
 </body>
