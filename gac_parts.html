@@ -76,6 +76,11 @@
             background-color: var(--primary-hover);
         }
 
+        button.upload-btn {
+            border: none;
+            font-family: inherit;
+        }
+
         input[type="file"] {
             display: none;
         }
@@ -188,10 +193,15 @@
     <div class="controls-box">
         <div class="file-upload-wrapper">
             <label for="csvFileInput" class="upload-btn">
-                📁 העלה קובץ CSV
+                📁 העלה קובץ CSV מותאם
             </label>
             <input type="file" id="csvFileInput" accept=".csv" onchange="handleFileUpload(event)">
-            <span class="file-name" id="fileNameDisplay">טוען נתונים שמורים...</span>
+
+            <button type="button" class="upload-btn" onclick="loadDefaultCSV()">
+                🌐 טען CSV ברירת מחדל
+            </button>
+
+            <span class="file-name" id="fileNameDisplay">טוען CSV ברירת מחדל...</span>
         </div>
 
         <input type="text" class="global-search" id="searchInput" onkeyup="filterParts()" placeholder="חיפוש כללי בכל העמודות (מק&quot;ט, תיאור, דגם...)...">
@@ -259,31 +269,78 @@
         });
     }
 
-    // ניסיון טעינה אוטומטית (מזיכרון הדפדפן או מהקובץ המקומי)
-    function autoLoad() {
-        const savedCSV = localStorage.getItem('savedPartsCSV');
-        const savedName = localStorage.getItem('savedCSVName');
+    // כתובת CSV ברירת המחדל
+    const DEFAULT_CSV_URL = 'https://gacparts.knizo.com/parts2.csv';
 
-        if (savedCSV) {
-            document.getElementById('fileNameDisplay').innerText = `נטען מזיכרון הדפדפן: ${savedName || 'קובץ שמור'}`;
-            parseCSVContent(savedCSV);
-            return;
-        }
+    // טעינת קובץ CSV שהועלה
+    function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
 
-        // ניסיון קריאה ישירה אם מופעל דרך שרת
-        Papa.parse('parts.csv', {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const csvText = e.target.result;
+
+            // שמירת הקובץ המותאם אישית בזיכרון המקומי
+            try {
+                localStorage.setItem('savedPartsCSV', csvText);
+                localStorage.setItem('savedCSVName', file.name);
+                localStorage.setItem('hasCustomCSV', 'true');
+            } catch(err) {
+                console.warn('לא ניתן היה לשמור בזיכרון המקומי (קובץ גדול מדי)');
+            }
+
+            document.getElementById('fileNameDisplay').innerText =
+                `קובץ מותאם אישית פעיל: ${file.name}`;
+
+            parseCSVContent(csvText);
+        };
+
+        reader.readAsText(file);
+    }
+
+    // טעינת CSV ברירת המחדל מהשרת
+    function loadDefaultCSV() {
+        document.getElementById('fileNameDisplay').innerText =
+            'טוען CSV ברירת מחדל מהשרת...';
+        document.getElementById('searchStats').innerText =
+            'טוען נתונים...';
+
+        Papa.parse(DEFAULT_CSV_URL, {
             download: true,
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                document.getElementById('fileNameDisplay').innerText = "נטען קובץ ברירת מחדל (parts.csv)";
+                document.getElementById('fileNameDisplay').innerText =
+                    'קובץ ברירת מחדל פעיל: parts2.csv';
                 processParsedData(results);
             },
-            error: function() {
-                document.getElementById('fileNameDisplay').innerText = "טרם הועלה קובץ. אנא לחץ על 'העלה קובץ CSV'.";
-                document.getElementById('searchStats').innerText = "ממתין להעלאת קובץ CSV...";
+            error: function(error) {
+                document.getElementById('fileNameDisplay').innerText =
+                    'שגיאה בטעינת CSV ברירת המחדל';
+                document.getElementById('searchStats').innerText =
+                    'לא ניתן לטעון את הקובץ מהשרת. בדוק CORS או זמינות של הכתובת.';
+                console.error('Default CSV load error:', error);
             }
         });
+    }
+
+    // טעינה אוטומטית:
+    // אם המשתמש כבר העלה CSV מותאם אישית - משתמשים בו.
+    // אחרת - טוענים את CSV ברירת המחדל מהכתובת החיצונית.
+    function autoLoad() {
+        const savedCSV = localStorage.getItem('savedPartsCSV');
+        const savedName = localStorage.getItem('savedCSVName');
+        const hasCustomCSV = localStorage.getItem('hasCustomCSV') === 'true';
+
+        if (hasCustomCSV && savedCSV) {
+            document.getElementById('fileNameDisplay').innerText =
+                `נטען קובץ מותאם אישית: ${savedName || 'קובץ שמור'}`;
+            parseCSVContent(savedCSV);
+            return;
+        }
+
+        loadDefaultCSV();
     }
 
     function processParsedData(results) {
