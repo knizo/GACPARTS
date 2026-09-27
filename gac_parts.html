@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>חיפוש חלפים - GAC / AION</title>
+    <!-- ספריית PapaParse לקריאת CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #0056b3;
+            --primary-hover: #004085;
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 15px;
+            direction: rtl;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .controls-box {
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .file-upload-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .upload-btn {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: background-color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .upload-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-name {
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .global-search {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .global-search:focus {
+            border-color: var(--primary-color);
+        }
+
+        .stats {
+            font-size: 0.9rem;
+            color: #666;
+            text-align: left;
+        }
+
+        .table-wrapper {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            overflow-x: auto;
+            max-height: 70vh;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: right;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        /* הגדרות קשיחות לחיסול פיצול מק"ט */
+        .sku-cell {
+            direction: ltr !important;
+            text-align: left !important;
+            unicode-bidi: bidi-override !important;
+            font-family: monospace;
+            font-weight: 600;
+            white-space: nowrap !important;
+            word-break: keep-all !important;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .filter-row th {
+            top: 41px;
+            background-color: #edf2f7;
+            padding: 6px 8px;
+        }
+
+        .col-filter {
+            width: 100%;
+            padding: 6px 8px;
+            font-size: 12px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            box-sizing: border-box;
+            outline: none;
+            direction: rtl;
+        }
+
+        .col-filter:focus {
+            border-color: var(--primary-color);
+            background-color: #fff;
+        }
+
+        tr:hover {
+            background-color: #f1f5f9;
+        }
+
+        .status-msg {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>חיפוש חלפים - GAC / AION</h1>
+
+    <div class="controls-box">
+        <div class="file-upload-wrapper">
+            <label for="csvFileInput" class="upload-btn">
+                📁 העלה קובץ CSV
+            </label>
+            <input type="file" id="csvFileInput" accept=".csv" onchange="handleFileUpload(event)">
+            <span class="file-name" id="fileNameDisplay">טוען נתונים שמורים...</span>
+        </div>
+
+        <input type="text" class="global-search" id="searchInput" onkeyup="filterParts()" placeholder="חיפוש כללי בכל העמודות (מק&quot;ט, תיאור, דגם...)...">
+        <div class="stats" id="searchStats">ממתין להעלאת קובץ CSV...</div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="partsTable">
+            <thead id="tableHeader"></thead>
+            <tbody id="tableBody">
+                <tr><td class="status-msg">אין נתונים להצגה. יש להעלות קובץ CSV.</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let rawData = [];
+    let headers = [];
+
+    // ניקוי מוחלט של תווי רווח נסתרים ותווי כיווניות Unicode מהמק"טים
+    function sanitizeValue(val) {
+        if (val === null || val === undefined) return '';
+        return String(val)
+            .replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '') // הסרת תווי שפה/כיווניות נסתרים
+            .replace(/\s+/g, '') // הסרת כל הרווחים במחרוזת
+            .trim();
+    }
+
+    // טעינת קובץ CSV שהועלה
+    function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const csvText = e.target.result;
+            
+            // שמירת הנתונים בזיכרון המקומי בדפדפן (LocalStorage)
+            try {
+                localStorage.setItem('savedPartsCSV', csvText);
+                localStorage.setItem('savedCSVName', file.name);
+            } catch(err) {
+                console.warn('לא ניתן היה לשמור בזיכרון המקומי (קובץ גדול מדי)');
+            }
+
+            document.getElementById('fileNameDisplay').innerText = `קובץ פעיל: ${file.name}`;
+            parseCSVContent(csvText);
+        };
+        reader.readAsText(file);
+    }
+
+    // פענוח ה-CSV
+    function parseCSVContent(csvContent) {
+        Papa.parse(csvContent, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                processParsedData(results);
+            },
+            error: function(err) {
+                document.getElementById('searchStats').innerText = "שגיאה בפענוח הקובץ.";
+                console.error(err);
+            }
+        });
+    }
+
+    // ניסיון טעינה אוטומטית (מזיכרון הדפדפן או מהקובץ המקומי)
+    function autoLoad() {
+        const savedCSV = localStorage.getItem('savedPartsCSV');
+        const savedName = localStorage.getItem('savedCSVName');
+
+        if (savedCSV) {
+            document.getElementById('fileNameDisplay').innerText = `נטען מזיכרון הדפדפן: ${savedName || 'קובץ שמור'}`;
+            parseCSVContent(savedCSV);
+            return;
+        }
+
+        // ניסיון קריאה ישירה אם מופעל דרך שרת
+        Papa.parse('parts.csv', {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                document.getElementById('fileNameDisplay').innerText = "נטען קובץ ברירת מחדל (parts.csv)";
+                processParsedData(results);
+            },
+            error: function() {
+                document.getElementById('fileNameDisplay').innerText = "טרם הועלה קובץ. אנא לחץ על 'העלה קובץ CSV'.";
+                document.getElementById('searchStats').innerText = "ממתין להעלאת קובץ CSV...";
+            }
+        });
+    }
+
+    function processParsedData(results) {
+        rawData = results.data;
+        headers = results.meta.fields || [];
+        
+        if (headers.length === 0 && rawData.length > 0) {
+            headers = Object.keys(rawData[0]);
+        }
+
+        buildTableHeader();
+        renderTable(rawData);
+    }
+
+    function buildTableHeader() {
+        const thead = document.getElementById('tableHeader');
+        if (headers.length === 0) {
+            thead.innerHTML = '';
+            return;
+        }
+
+        let headerRow = '<tr>';
+        headers.forEach(header => {
+            headerRow += `<th>${header}</th>`;
+        });
+        headerRow += '</tr>';
+
+        let filterRow = '<tr class="filter-row">';
+        headers.forEach((header) => {
+            filterRow += `
+                <th>
+                    <input type="text" 
+                           class="col-filter" 
+                           data-header="${header}" 
+                           onkeyup="filterParts()" 
+                           placeholder="סנן...">
+                </th>`;
+        });
+        filterRow += '</tr>';
+
+        thead.innerHTML = headerRow + filterRow;
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `<tr><td class="status-msg" colspan="${headers.length || 1}">לא נמצאו תוצאות</td></tr>`;
+            document.getElementById('searchStats').innerText = "מציג 0 תוצאות";
+            return;
+        }
+
+        let fragment = document.createDocumentFragment();
+
+        data.forEach(row => {
+            let tr = document.createElement('tr');
+            headers.forEach((header, index) => {
+                let td = document.createElement('td');
+                let rawVal = row[header] !== undefined ? row[header] : '';
+
+                // אם מדובר בעמודה הראשונה (עמודת מק"ט), מנקים אותה לחלוטין ומחילים עיצוב קשיח
+                if (index === 0) {
+                    td.classList.add('sku-cell');
+                    td.textContent = sanitizeValue(rawVal);
+                } else {
+                    td.textContent = String(rawVal).trim();
+                }
+                
+                tr.appendChild(td);
+            });
+            fragment.appendChild(tr);
+        });
+
+        tbody.appendChild(fragment);
+        document.getElementById('searchStats').innerText = `מציג ${data.length} מתוך ${rawData.length} פריטים`;
+    }
+
+    function filterParts() {
+        const globalQuery = sanitizeValue(document.getElementById('searchInput').value).toLowerCase();
+
+        const colFilters = {};
+        const filterInputs = document.querySelectorAll('.col-filter');
+        filterInputs.forEach(input => {
+            const val = sanitizeValue(input.value).toLowerCase();
+            if (val) {
+                const header = input.getAttribute('data-header');
+                colFilters[header] = val;
+            }
+        });
+
+        const filtered = rawData.filter(row => {
+            if (globalQuery) {
+                const matchesGlobal = headers.some(header => {
+                    const cellVal = sanitizeValue(row[header]).toLowerCase();
+                    return cellVal.includes(globalQuery);
+                });
+                if (!matchesGlobal) return false;
+            }
+
+            for (let header in colFilters) {
+                const filterVal = colFilters[header];
+                const cellVal = sanitizeValue(row[header]).toLowerCase();
+                if (!cellVal.includes(filterVal)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        renderTable(filtered);
+    }
+
+    document.addEventListener('DOMContentLoaded', autoLoad);
+</script>
+
+</body>
+</html>
